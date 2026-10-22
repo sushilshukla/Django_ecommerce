@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils.text import slugify
-from .models import Category
+from .models import Category,Brand
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -42,4 +42,39 @@ class CategorySerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "parent": "A category cannot be its own parent."
             })
+        return attrs
+
+class BrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = (
+            "id",
+            "name",
+            "slug",
+            "is_active",
+            "sort_order",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id","created_at","updated_at")
+        extra_kwargs = {
+            "slug":{"required":False}
+        }
+    
+    def validate_name(self,value):
+        return " ".join(value.strip().split())
+
+    def validate(self,attrs):
+        name = attrs.get("name") or  getattr(self.instance, "name", "")
+        slug = attrs.get("slug") or slugify(name)
+        attrs["slug"] = slug
+
+        slug_qs = Brand.objects.filter(slug=slug)
+        if self.instance:
+            slug_qs = slug_qs.exclude(pk=self.instance.pk)
+        if slug_qs.exists():
+            raise serializers.ValidationError({
+                "slug":"A brand with this slug already exists. Use a different name or slug."
+            })
+
         return attrs
